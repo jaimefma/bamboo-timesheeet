@@ -198,6 +198,14 @@ if __name__ == "__main__":
         last_day_of_month = calendar.monthrange(start_date.year, start_date.month)[1]
         end_date = datetime.date(start_date.year, start_date.month, last_day_of_month)
 
+    print("=" * 70)
+    print("⚠️  WARNING: This is a BETA script")
+    print("=" * 70)
+    print("You are responsible for verifying that all information is properly")
+    print("logged into BambooHR. Please check your timesheet entries after")
+    print("running this script to ensure accuracy.")
+    print("=" * 70)
+    print()
     print(f"Timesheet for {start_date} to {end_date} is about to be submitted")
     input("Press Enter to continue...")
 
