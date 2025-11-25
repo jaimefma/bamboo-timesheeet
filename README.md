@@ -1,2 +1,2 @@
 # bamboo-timesheeet
-Login bamboo information 
+Login bamboo time 
