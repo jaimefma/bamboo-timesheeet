@@ -43,9 +43,14 @@ def was_off_day(date: datetime.date) -> list:
         return []
     if response.status_code == 200 and response:
         off_day_info = response.json()
-        if len(off_day_info) > 0:
-            off_day_info = off_day_info[0]['amount']
-            print(f"There is an off details: {off_day_info['amount']} {off_day_info['unit']}")
+        # TODO manage multiple entries. It's very unlikely but possible.
+        if len(off_day_info) == 1 and off_day_info[0]['status']['status'] == 'approved':
+            off_day_info = off_day_info[0]
+            print(f"There is an entry of {off_day_info['amount']['amount']} {off_day_info['amount']['unit']} for {off_day_info['type']['name']}")
+            return True
+        elif len(off_day_info) > 1:
+            # TODO manage multiple entries. It's very unlikely but possible.
+            print('Sorry, I cannot manage multiple entries. Please check the BambooHR website.')
             return True
     return False
 
