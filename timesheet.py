@@ -14,172 +14,178 @@ import sys
 
 from dotenv import load_dotenv
 
+from tools import identify_first_day_of_period, days_to_clock
 
-load_dotenv()
 
-BAMBOO_EMPLOYEE_ID = os.getenv('BAMBOO_EMPLOYEE_ID')
-BAMBOO_API_KEY = os.getenv("BAMBOO_API_KEY")
-BAMBOO_API_BASE_URL = 'https://backbase.bamboohr.com/api/v1'
-
-def was_off_day(date: datetime.date) -> list:
+class BambooHRTimesheetClient:
     """
-    Get the off days for the given date.
+    Client for interacting with BambooHR API to manage timesheet entries.
     """
-    url = f'{BAMBOO_API_BASE_URL}/time_off/requests'
-    params = {
-        'employeeId': BAMBOO_EMPLOYEE_ID,
-        'start': date.strftime('%Y-%m-%d'),
-        'end': date.strftime('%Y-%m-%d')
-    }
-    try:
-        response = requests.get(
-            url,
-            params=params,
-            auth=(BAMBOO_API_KEY, 'x'),
-            headers={'Accept': 'application/json'}
-        )   
-    except requests.exceptions.RequestException as e:
-        print(f"Warning: Error checking existing entries: {e}")
-        return []
-    if response.status_code == 200 and response:
-        off_day_info = response.json()
-        # TODO manage multiple entries. It's very unlikely but possible.
-        if len(off_day_info) == 1 and off_day_info[0]['status']['status'] == 'approved':
-            off_day_info = off_day_info[0]
-            print(f"There is an entry of {off_day_info['amount']['amount']} {off_day_info['amount']['unit']} for {off_day_info['type']['name']}")
-            return True
-        elif len(off_day_info) > 1:
-            # TODO manage multiple entries. It's very unlikely but possible.
-            print('Sorry, I cannot manage multiple entries. Please check the BambooHR website.')
-            return True
-    return False
-
-
-def get_existing_entries(date: datetime.date) -> list:
-    """
-    Check if there are existing clock entries for the given date.
     
-    Args:
-        date: datetime.date object representing the date to check
+    def __init__(self, employee_id: str, api_key: str, api_base_url: str):
+        """
+        Initialize the BambooHR Timesheet Client.
         
-    Returns:
-        list: List of existing entries for the date, empty if none exist
-    """
-    date_str = date.strftime('%Y-%m-%d')
-    url = f'{BAMBOO_API_BASE_URL}/time_tracking/timesheet_entries'
-    
-    # Parameters to filter by employee and date
-    params = {
-        'employeeIds': BAMBOO_EMPLOYEE_ID,
-        'start': date_str,
-        'end': date_str
-    }
-    
-    try:
-        response = requests.get(
-            url,
-            params=params,
-            auth=(BAMBOO_API_KEY, 'x')
-        )   
-    except requests.exceptions.RequestException as e:
-        print(f"Warning: Error checking existing entries: {e}")
-        return []
-    else:
-        if response.status_code == 200:
-            return response.json()
-            # Return the entries if they exist
-        else:
-            print(f"Warning: Could not retrieve existing entries. Status: {response.status_code}")
-            return []
+        Args:
+            employee_id: BambooHR employee ID.
+            api_key: BambooHR API key.
+            api_base_url: Base URL for BambooHR API. 
+        """
+        self.employee_id = employee_id
+        self.api_key = api_key
+        self.api_base_url = api_base_url
 
-
-def clock_day(date: datetime.date):
-    """
-    Register a clock in/out time entry for the given date and time.
-
-    Args:
-        date: datetime.date object representing the date of the entry
-        start_time: str representing the start time of the entry in HH:MM format
-        end_time: str representing the end time of the entry in HH:MM format
-        
-    """
-    print(f"⏰ Clocking for {date}")
-    # Define the request payload
-    date_str = date.strftime('%Y-%m-%d')
-    payload = {
-        "entries":[
-            {
-                "employeeId": BAMBOO_EMPLOYEE_ID,
-                "date": date_str,
-                "start": "08:00",
-                "end": "13:00",
-            },
-            {
-                "employeeId": BAMBOO_EMPLOYEE_ID,
-                "date": date_str,
-                "start": "14:00",
-                "end": "17:00",
-            }
-        ]
-    }
-    # TODO check there is no entry for that day
+    def is_off_day(self, date: datetime.date) -> bool:
+        """
+        Check if the given date is an off day (time off request).
     
-    if get_existing_entries(date):
-        print(f"... ❌ CANCELLED because of existing entries")
-    elif was_off_day(date): 
-        print(f"... ❌ CANCELLED because of off day")
-    else:
-        # Make the API request    
-        url = f'{BAMBOO_API_BASE_URL}/time_tracking/clock_entries/store'
+        Returns:
+            bool: True if the date is an approved off day, False otherwise
+        """
+        url = f'{self.api_base_url}/time_off/requests'
+        params = {
+            'employeeId': self.employee_id,
+            'start': date.strftime('%Y-%m-%d'),
+            'end': date.strftime('%Y-%m-%d')
+        }
         try:
-            response = requests.post(
-                url, 
-                json=payload,
-                auth=(BAMBOO_API_KEY, 'x'))
-            
-            if response.status_code in [200, 201]:
-                print("... ✅ Done")
-            
-            else:
-                print(f"Request failed with status code: {response.status_code}")
-                print("Response:", response.text)
-                
+            response = requests.get(
+                url,
+                params=params,
+                auth=(self.api_key, 'x'),
+                headers={'Accept': 'application/json'}
+            )   
         except requests.exceptions.RequestException as e:
-            print(f"Error making request: {e}")
-            sys.exit(1)
+            print(f"Warning: Error checking existing entries: {e}")
+            return False
+        
+        if response and response.status_code == 200:
+            off_day_info = response.json()
+            # TODO manage multiple entries. It's very unlikely but possible.
+            if len(off_day_info) == 1 and off_day_info[0]['status']['status'] == 'approved':
+                off_day_info = off_day_info[0]
+                print(f"There is an entry of {off_day_info['amount']['amount']} {off_day_info['amount']['unit']} for {off_day_info['type']['name']}")
+                return True
+            elif len(off_day_info) > 1:
+                # TODO manage multiple entries. It's very unlikely but possible.
+                print('Sorry, I cannot manage multiple entries. Please check the BambooHR website.')
+                return True
+        return False
+
+    def get_existing_entries(self, date: datetime.date) -> list:
+        """
+        Check if there are existing clock entries for the given date.
+        
+        Args:
+            date: datetime.date object representing the date to check
+            
+        Returns:
+            list: List of existing entries for the date, empty if none exist
+        """
+        date_str = date.strftime('%Y-%m-%d')
+        url = f'{self.api_base_url}/time_tracking/timesheet_entries'
+        
+        # Parameters to filter by employee and date
+        params = {
+            'employeeIds': self.employee_id,
+            'start': date_str,
+            'end': date_str
+        }
+        
+        try:
+            response = requests.get(
+                url,
+                params=params,
+                auth=(self.api_key, 'x')
+            )   
+        except requests.exceptions.RequestException as e:
+            print(f"Warning: Error checking existing entries: {e}")
+            return {}
+        else:
+            if response.status_code == 200:
+                return response.json()
+                # Return the entries if they exist
+            else:
+                print(f"Warning: Could not retrieve existing entries. Status: {response.status_code}")
+                return {}
+
+    def clock_day(self, date: datetime.date):
+        """
+        Register a clock in/out time entry for the given date and time.
+
+        Args:
+            date: datetime.date object representing the date of the entry
+        """
+        print(f"⏰ Clocking for {date}")
+        # Define the request payload
+        date_str = date.strftime('%Y-%m-%d')
+        payload = {
+            "entries":[
+                {
+                    "employeeId": self.employee_id,
+                    "date": date_str,
+                    "start": "08:00",
+                    "end": "13:00",
+                },
+                {
+                    "employeeId": self.employee_id,
+                    "date": date_str,
+                    "start": "14:00",
+                    "end": "17:00",
+                }
+            ]
+        }
+        # TODO check there is no entry for that day
+        
+        if self.get_existing_entries(date):
+            print(f"... ❌ CANCELLED because of existing entries")
+        elif self.is_off_day(date): 
+            print(f"... ❌ CANCELLED because of off day")
+        else:
+            # Make the API request    
+            url = f'{self.api_base_url}/time_tracking/clock_entries/store'
+            try:
+                response = requests.post(
+                    url, 
+                    json=payload,
+                    auth=(self.api_key, 'x'))
+                
+                if response.status_code in [200, 201]:
+                    print("... ✅ Done")
+                
+                else:
+                    print(f"Request failed with status code: {response.status_code}")
+                    print("Response:", response.text)
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"Error making request: {e}")
 
 
-def identify_first_day_of_period():
-    """
-    Identify the first day of the period to register the timesheet. This isually happens by the end of it or the begining of the following one    
-    """
-    # Usually it fits with the current month
-    now = datetime.datetime.now()
-    timesheet_month = now.month
-    # If this is run at the begining of the month, it will be the previous month
-    if now.day < 10:
-        if timesheet_month == 1:
-            return datetime.date(now.year - 1, 12, 1) # December of previous year
-        return datetime.date(now.year, timesheet_month - 1, 1) # Previous month
-    return datetime.date(now.year, timesheet_month, 1) # Current month
-
-
-def days_to_clock(start_date: datetime.date, end_date: datetime.date) -> list[datetime.date]:
-    """
-    Generate a list of dates between start_date and end_date, both inclusive, excluding weekends,
-    TODO holidays and public holidays.
-    """
-    days = []
-    current_date = start_date
-    while current_date <= end_date:
-        if current_date.weekday() < 5:
-            days.append(current_date)
-        current_date += datetime.timedelta(days=1)
-    return days
 
 if __name__ == "__main__":
+
+    load_dotenv()
+
+    employee_id = os.getenv('BAMBOO_EMPLOYEE_ID')
+    api_key = os.getenv("BAMBOO_API_KEY")
+    api_base_url = 'https://backbase.bamboohr.com/api/v1'
+
+    if not employee_id:
+        print("Error: BAMBOO_EMPLOYEE_ID environment variable is not set.")
+        print("Please set it in your .env file or environment.")
+        sys.exit(1)
+
+    if not api_key:
+        print("Error: BAMBOO_API_KEY environment variable is not set.")
+        print("Please set it in your .env file or environment.")
+        sys.exit(1)
+    
+    # Initialize the client
+    client = BambooHRTimesheetClient(employee_id, api_key, api_base_url)
+    
     # Check command line arguments
     start_date = None
+    last_day = None
     num_params = len(sys.argv)
     if num_params >= 2:
         last_day = int(sys.argv[1])
@@ -210,5 +216,5 @@ if __name__ == "__main__":
     input("Press Enter to continue...")
 
     for day in days_to_clock(start_date, end_date):
-        clock_day(day)
+        client.clock_day(day)
     
