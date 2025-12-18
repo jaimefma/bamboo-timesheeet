@@ -66,16 +66,16 @@ Automatically determines the period:
 - If run on/after day 10 → fills current month
 
 ```bash
-uv run timesheet.py <last_day>
+uv run main.py <last_day>
 ```
 
 **Examples:**
 ```bash
 # Fill from month start to the 22nd
-uv run timesheet.py 22
+uv run main.py 22
 
 # Fill entire month (from 1st to last day of month)
-uv run timesheet.py 31
+uv run main.py 31
 ```
 
 ### 2. Custom Date Range
@@ -83,16 +83,16 @@ uv run timesheet.py 31
 Specify both the last day and a custom start date:
 
 ```bash
-uv run timesheet.py <last_day> <start_date>
+uv run main.py <last_day> <start_date>
 ```
 
 **Examples:**
 ```bash
 # Fill from January 15 to January 22, 2025
-uv run timesheet.py 22 15-01-2025
+uv run main.py 22 15-01-2025
 
 # Fill from November 1 to November 30, 2025
-uv run timesheet.py 30 01-11-2025
+uv run main.py 30 01-11-2025
 ```
 
 **Date format:** `DD-MM-YYYY`
@@ -134,8 +134,6 @@ The script uses the following BambooHR API endpoints:
 Default time entries (hardcoded in script):
 - Morning shift: 08:00 - 13:00
 - Afternoon shift: 14:00 - 17:00
-
-To modify these times, edit the `clock_day()` function in `timesheet.py`.
 
 ## Requirements
 
