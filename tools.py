@@ -45,3 +45,26 @@ def days_to_clock(start_date: datetime.date, end_date: datetime.date) -> list[da
         current_date += datetime.timedelta(days=1)
     return days
 
+
+def days_to_clock_filtered(
+    start_date: datetime.date,
+    end_date: datetime.date,
+    exclude_dates: set[datetime.date],
+) -> list[datetime.date]:
+    """
+    Return workdays between start_date and end_date (inclusive), excluding any date in exclude_dates.
+    
+    Excludes weekends and any date present in exclude_dates (holidays, approved time off,
+    days that already have entries, etc).
+    
+    Args:
+        start_date: Start date (inclusive)
+        end_date: End date (inclusive)
+        exclude_dates: Set of dates to exclude (e.g. holidays, time off, days with existing entries)
+        
+    Returns:
+        list[datetime.date]: List of workdays to clock, minus excluded dates
+    """
+    all_workdays = days_to_clock(start_date, end_date)
+    return [d for d in all_workdays if d not in exclude_dates]
+
